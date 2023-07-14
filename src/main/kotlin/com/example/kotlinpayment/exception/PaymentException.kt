@@ -2,7 +2,7 @@ package com.example.kotlinpayment.exception
 
 class PaymentException(
     val errorCode: ErrorCode,
-    val errorMessage: String
+    val errorMessage: String = errorCode.errorMessage
 ) : RuntimeException()
 
 enum class ErrorCode(val errorMessage: String) {
