@@ -15,50 +15,75 @@ import com.example.kotlinpayment.util.generateOrderId
 import com.example.kotlinpayment.util.generateTransactionId
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 /**
  * 결제의 요청 저장, 성공, 실패 저장
  */
 @Service
 class PaymentStatusService(
-    private val paymentUserRepository: PaymentUserRepository,
-    private val orderRepository: OrderRepository,
-    private val orderTransactionRepository: OrderTransactionRepository,
+        private val paymentUserRepository: PaymentUserRepository,
+        private val orderRepository: OrderRepository,
+        private val orderTransactionRepository: OrderTransactionRepository,
 ) {
     @Transactional
     fun savePayRequest(
-        payUserId: String,
-        amount: Long,
-        orderTitle: String,
-        merchantTransactionId: String,
+            payUserId: String,
+            amount: Long,
+            orderTitle: String,
+            merchantTransactionId: String,
     ): Long {
         //order, orderTransaction 저장
         val paymentUser: PaymentUser = paymentUserRepository.findByPayUserId(payUserId)
-            ?: throw PaymentException(ErrorCode.INVALID_REQUEST, "사용자 없음 : $payUserId")
+                ?: throw PaymentException(ErrorCode.INVALID_REQUEST, "사용자 없음 : $payUserId")
 
         val order = orderRepository.save(
-            Order(
-                orderId = generateOrderId(),
-                paymentUser = paymentUser,
-                orderStatus = OrderStatus.CREATED,
-                orderTile = orderTitle,
-                orderAmount = amount,
-            )
+                Order(
+                        orderId = generateOrderId(),
+                        paymentUser = paymentUser,
+                        orderStatus = OrderStatus.CREATED,
+                        orderTile = orderTitle,
+                        orderAmount = amount,
+                )
         )
 
         orderTransactionRepository.save(
-            OrderTransaction(
-                transactionId = generateTransactionId(),
-                order = order,
-                transactionType = TransactionType.PAYMENT,
-                transactionStatus = TransactionStatus.RESERVE,
-                transactionAmount = amount,
-                merchantTransactionId = merchantTransactionId,
-                description = orderTitle
-            )
+                OrderTransaction(
+                        transactionId = generateTransactionId(),
+                        order = order,
+                        transactionType = TransactionType.PAYMENT,
+                        transactionStatus = TransactionStatus.RESERVE,
+                        transactionAmount = amount,
+                        merchantTransactionId = merchantTransactionId,
+                        description = orderTitle
+                )
         )
 
         return order.id ?: throw PaymentException(ErrorCode.INTERNAL_SERVER_ERROR)
+    }
+
+    @Transactional
+    fun saveAsSuccess(orderId: Long, payMethodTransactionId: String
+    ): Pair<String, LocalDateTime> {
+        var order: Order = orderRepository.findById(orderId)
+                .orElseThrow { throw PaymentException(ErrorCode.ORDER_NOT_ROUND) }
+                .apply {
+                    orderStatus = OrderStatus.PAID
+                    paidAmount = orderAmount
+                }
+
+        val orderTransaction = orderTransactionRepository.findByOrderAndTransactionType(
+                order = order,
+                transactionType = TransactionType.PAYMENT
+        ).first().apply {
+            transactionStatus = TransactionStatus.SUCCESS
+            this.payMethodTransactionId = payMethodTransactionId
+            transactedAt = LocalDateTime.now()
+        }
+
+        return Pair(orderTransaction.transactionId,
+                orderTransaction.transactedAt ?: throw  PaymentException(
+                        ErrorCode.INTERNAL_SERVER_ERROR))
     }
 }
 
