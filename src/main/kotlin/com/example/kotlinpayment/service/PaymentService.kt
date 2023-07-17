@@ -6,40 +6,48 @@ import java.time.LocalDateTime
 
 @Service
 class PaymentService(
-    private val paymentStatusService: PaymentStatusService
+        private val paymentStatusService: PaymentStatusService,
+        private val accountService: AccountService,
 ) {
     fun pay(
-        payServiceRequest: PayServiceRequest
+            payServiceRequest: PayServiceRequest
     ): PayServiceResponse {
         //요청을 저장
         val orderId = paymentStatusService.savePayRequest(
-            payUserId = payServiceRequest.payUserId,
-            amount = payServiceRequest.amount,
-            orderTitle = payServiceRequest.orderTitle,
-            merchantTransactionId = payServiceRequest.merchantTransactionId
+                payUserId = payServiceRequest.payUserId,
+                amount = payServiceRequest.amount,
+                orderTitle = payServiceRequest.orderTitle,
+                merchantTransactionId = payServiceRequest.merchantTransactionId
         )
+
         //계좌에 금액 사용 요청
+        val payMethodTransactionId = accountService.useAccount(orderId)
+
         // 성공 : 거래를 성공으로 저장
-        // 실패 : 거래를 실패로 저장
+        val (transactionId, transactedAt) = paymentStatusService.saveAsSuccess(orderId, payMethodTransactionId)
+
         return PayServiceResponse(
-            payUserId = "payUserId",
-            amount = 100,
-            transactionId = "transactionId",
-            transactedAt = LocalDateTime.now()
+                payUserId = payServiceRequest.payUserId,
+                amount = payServiceRequest.amount,
+                transactionId = transactionId,
+                transactedAt = transactedAt
         )
+
+        // 실패 : 거래를 실패로 저장
+
     }
 }
 
 class PayServiceResponse(
-    val payUserId: String,
-    val amount: Long,
-    val transactionId: String,
-    val transactedAt: LocalDateTime,
+        val payUserId: String,
+        val amount: Long,
+        val transactionId: String,
+        val transactedAt: LocalDateTime,
 )
 
 class PayServiceRequest(
-    val payUserId: String,
-    val amount: Long,
-    val merchantTransactionId: String,
-    val orderTitle: String,
+        val payUserId: String,
+        val amount: Long,
+        val merchantTransactionId: String,
+        val orderTitle: String,
 )

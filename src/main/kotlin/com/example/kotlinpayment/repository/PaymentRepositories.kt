@@ -1,5 +1,6 @@
 package com.example.kotlinpayment.repository
 
+import TransactionType
 import com.example.kotlinpayment.domain.Order
 import com.example.kotlinpayment.domain.OrderTransaction
 import com.example.kotlinpayment.domain.PaymentUser
@@ -14,5 +15,9 @@ interface OrderRepository : JpaRepository<Order, Long> {
 }
 
 interface OrderTransactionRepository : JpaRepository<OrderTransaction, Long> {
+    fun findByOrderAndTransactionType(
+            order: Order,
+            transactionType: TransactionType
+    ): List<OrderTransaction>
 
 }
